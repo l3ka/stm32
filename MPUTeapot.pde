@@ -55,6 +55,16 @@ float[] gravity = new float[3];
 float[] euler = new float[3];
 float[] ypr = new float[3];
 
+char buffer[] = new char[100];
+int buffCounter = 0;
+
+void resetBuffer() {
+   for(int i = 0; i < 100; ++i) {
+     buffer[i] = 32;
+   }
+   buffCounter = 0;
+}
+
 void setup() {
     // 300px square viewport using OpenGL rendering
     size(400, 400, OPENGL);
@@ -68,24 +78,17 @@ void setup() {
     println(Serial.list());
 
     // get the first available port (use EITHER this OR the specific port code below)
-    // String portName = "/dev/ttyUSB1";
-    // String portName = "/dev/tty.usbmodem1421";
     // get a specific serial port (use EITHER this OR the first-available code above)
     String portName = "COM5";
     
     // open the serial port
     port = new Serial(this, portName, 115200);
-    
-    // send single character to trigger DMP init/start
-    // (expected by MPU6050_DMP6 example Arduino sketch)
-    // port.write('r');
 }
 
 void draw() {
     if (millis() - interval > 1000) {
         // resend single character to trigger DMP init/start
         // in case the MPU is halted/reset while applet is running
-        // port.write('r');
         interval = millis();
     }
     
@@ -98,9 +101,9 @@ void draw() {
 
     // 3-step rotation from yaw/pitch/roll angles (gimbal lock!)
     // ...and other weirdness I haven't figured out yet
-    //rotateY(-ypr[0]);
-    //rotateZ(-ypr[1]);
-    //rotateX(-ypr[2]);
+    // rotateY(-ypr[0]);
+    // rotateZ(-ypr[1]);
+    // rotateX(-ypr[2]);
 
     // toxiclibs direct angle/axis rotation from quaternion (NO gimbal lock!)
     // (axis order [1, 3, 2] and inversion [-1, +1, +1] is a consequence of
@@ -141,25 +144,15 @@ void draw() {
     popMatrix();
 }
 
-char buffer[] = new char[100];
-int buffCounter = 0;
-
-void resetBuffer(){
-   for(int i =0;i<100;i++){
-     buffer[i] = 32;
-   }
-   buffCounter = 0;
-}
-
 void serialEvent(Serial port) {
     interval = millis();
     while (port.available() > 0) {
         int ch = port.read();
         print((char)ch);
-        
-        if(ch!=10){
+        if(ch != 10) {
          buffer[buffCounter++] = (char)ch; 
-        }else{
+        }
+        else {
           String line = new String(buffer);
           line = line.trim();
           String[] splitValues = line.split(" ");
