@@ -25,6 +25,9 @@
 #include "SPI_Handler.h"
 #include "I2C_Handler.h"
 #include "Interrupt_Handler.h"
+#include "MPU_Handler.h"
+#include "Timer_Handler.h"
+#include "MadgwickAHRS.h"
 
 // ----- Timing definitions ---------------------------------------------------
 
@@ -48,6 +51,23 @@ extern UART_HandleTypeDef UartHandle;
 // extern UART_HandleTypeDef UartHandle2;  // Handle used for UART2 peripherals
 extern I2C_HandleTypeDef I2cHandle;
 
+// --------------------- MadgwickAHRS -------------------
+
+extern float realGyroX;
+extern float realGyroY;
+extern float realGyroZ;
+extern float realAccelX;
+extern float realAccelY;
+extern float realAccelZ;
+extern float realMagX;
+extern float realMagY;
+extern float realMagZ;
+
+extern volatile float q0;
+extern volatile float q1;
+extern volatile float q2;
+extern volatile float q3;
+
 // ----- Variables To Be Exported --------------------------------------------
 
 int ledPin = 0;
@@ -56,11 +76,11 @@ int ledPin = 0;
 
 int main(int argc, char* argv[])
 {
-	/* ---------- Initialization phase of the program, used to initialize system stuff ---------- */
+	/* ---------- Initialization phase of the program, used to initialize system stuff ----------
 	HAL_Init();
 	SystemClock_Config();
 	timer_start(); 		// timer for led blinking test
-
+	---------------------------- End ---------------------------------------------------------- */
 
 	/* ---------- Initialization phase of the program, used to initialize peripherals ---------- */
 	ButtonInit();
@@ -69,12 +89,10 @@ int main(int argc, char* argv[])
 	// InitUSART2();
 	InitSPI();
 	InitI2C();
-
-
-
+	// InitTimer();
 
 	/* ---------- Initialization phase of the program, used to initialize interrupts ---------- */
-	EXTI15_10_IRQHandler_Config();
+	// EXTI15_10_IRQHandler_Config();
 
 
 
@@ -94,14 +112,156 @@ int main(int argc, char* argv[])
 	char i2c_uart_master_input[10];
 	char i2c_uart_slave_output[10];
 
+	// ----- MPU variables -----
+	HAL_StatusTypeDef status = HAL_ERROR;
+
+	char i2c_mpu_write_buffer[30] = { 0 };
+	float realTemp = 0.0f;
+
+	char i2c_mpu_temp_buffer[2] = { 0 };
+	char i2c_mpu_gyro_buffer[6] = { 0 };
+	char gyro_config = 0;
+	char accel_config = 0;
+	char i2c_mpu_gyro_write_buffer[100] = { 0 };
+	char i2c_mpu_accel_buffer[6] = { 0 };
+	char i2c_mpu_accel_write_buffer[100] = { 0 };
+
+	char mag_config = 111;
+	char i2c_mpu_mag_buffer[7] = { 0 };
+	char i2c_mpu_mag_write_buffer[100] = { 0 };
+	char magnetic_status_1 = 0;
+
+	char i2c_mpu_quaternion_data[100] = { 0 };
+
+	uint16_t intgerTemperature = 0;
+	uint16_t mask = 0;
+
 	// ----- Timer variables -----
 	uint32_t seconds = 0;
 	uint32_t count = 0;
 
+	/* ----- Configuring the bypass mode -------------------------------------*/
+	HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x37, 1, &mag_config, 1, HAL_MAX_DELAY);
+	mag_config &= 0xFD;
+	mag_config |= 0x02;
+	HAL_I2C_Mem_Write(&I2cHandle, 0xD0u, 0x37u, 1, &mag_config, 1, HAL_MAX_DELAY);
+	/*--------------------End of config the bypass mode ------------------------------------------*/
 
-	/* Executing part of the program */
+
+	/* ----- Configuring the gyroscope ---------------
+	 * GYRO_SENSITIVITY_FS_0 */
+	HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x1B, 1, &gyro_config, 1, HAL_MAX_DELAY);
+	gyro_config &= 0xEF;
+	gyro_config |= 0x08;
+	HAL_I2C_Mem_Write(&I2cHandle, 0xD0u, 0x1Bu, 1, &gyro_config, 1, HAL_MAX_DELAY);
+
+	/* * GYRO_SENSITIVITY_FS_0
+	HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x1A, 1, &gyro_config, 1, HAL_MAX_DELAY);
+	gyro_config &= 0xF8;
+	gyro_config |= 0x03;
+	HAL_I2C_Mem_Write(&I2cHandle, 0xD0u, 0x1A, 1, &gyro_config, 1, HAL_MAX_DELAY);
+	*/
+
+	/* ----- Configuring the accelerometer -------------------------------------
+	 * ACCEL_SENSITIVITY_FS_1 */
+	HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x1C, 1, &accel_config, 1, HAL_MAX_DELAY);
+	accel_config &= 0xEF;
+	accel_config |= 0x08;
+	HAL_I2C_Mem_Write(&I2cHandle, 0xD0u, 0x1C, 1, &accel_config, 1, HAL_MAX_DELAY);
+	/* --------------------End of config ------------------------------------------*/
+
+	/* ----- Configuring the magnetometer ------------------------------------- */
+	HAL_I2C_Mem_Read(&I2cHandle, 0x18u, 0x0A, 1, &mag_config, 1, HAL_MAX_DELAY);
+	mag_config &= 0xE0;
+	mag_config |= 0x16;
+	HAL_I2C_Mem_Write(&I2cHandle, 0x18u, 0x0A, 1, &mag_config, 1, HAL_MAX_DELAY);
+	/* -------------------- End of config magnetometer ------------------------------------------*/
+
+
+
+
+	/* ----- Executing part of the program */
 	while (1)
 	{
+		// Read temperature from MPU-9250
+		/// HAL_StatusTypeDef status = HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x41, 1, (uint8_t*)i2c_mpu_temp_buffer, 2, HAL_MAX_DELAY);
+
+		// Read gyroscope from MPU-9250
+		HAL_StatusTypeDef status_gyro = HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x43, 1, (uint8_t*)i2c_mpu_gyro_buffer, 6, HAL_MAX_DELAY);
+
+		// Read accelerometer from MPU-9250
+		HAL_StatusTypeDef status_accel = HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x3B, 1, (uint8_t*)i2c_mpu_accel_buffer, 6, HAL_MAX_DELAY);
+
+		// Read magnetometer from MPU-9250
+		// resetMagnetometer();
+		HAL_StatusTypeDef status_mag = HAL_I2C_Mem_Read(&I2cHandle, 0x18u, 0x02, 1, &magnetic_status_1, 1, HAL_MAX_DELAY);
+
+		if((magnetic_status_1 & 0x01) == 1){
+			status = HAL_I2C_Mem_Read(&I2cHandle, 0x18u, 0x03, 1, (uint8_t*)i2c_mpu_mag_buffer, 7, HAL_MAX_DELAY);
+		}
+
+		if(status_gyro == HAL_OK && status_accel == HAL_OK && status_mag == HAL_OK) {
+			ledPin = 0;
+
+			/* -----------------------------------------------------------------------------------
+			 * ----------------- parsing the temperature through the function ----------------------
+			 * -----------------------------------------------------------------------------------
+			readingTheTemperature(i2c_mpu_temp_buffer, i2c_mpu_write_buffer);
+			HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_write_buffer, sizeof(i2c_mpu_write_buffer), HAL_MAX_DELAY);
+			 ----------------- End of parsing the temperature through the function------------------*/
+
+			/* -----------------------------------------------------------------------------------
+			 * ----------------- parsing the gyroscope through the function ----------------------
+			 * ----------------------------------------------------------------------------------- */
+			readingTheGyroscope(i2c_mpu_gyro_buffer, i2c_mpu_gyro_write_buffer);
+			// HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_gyro_write_buffer, sizeof(i2c_mpu_gyro_write_buffer), HAL_MAX_DELAY);
+			/* ---------------- End of parsing the gyroscope through the function ------------- */
+
+			/* -----------------------------------------------------------------------------------
+			 * ----------------- parsing the accelerometer through the function ----------------------
+			 * ----------------------------------------------------------------------------------- */
+			readingTheAccel(i2c_mpu_accel_buffer, i2c_mpu_accel_write_buffer);
+			// HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_accel_write_buffer, sizeof(i2c_mpu_accel_write_buffer), HAL_MAX_DELAY);
+			/*  ----------------- End of parsing the accelerometer through the function------------------*/
+
+
+			/* -----------------------------------------------------------------------------------
+			 * ----------------- parsing the magnetometer through the function ----------------------
+			 * ----------------------------------------------------------------------------------- */
+			readingTheMagnetometer(i2c_mpu_mag_buffer, i2c_mpu_mag_write_buffer);
+			// HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_mag_write_buffer, sizeof(i2c_mpu_mag_write_buffer), HAL_MAX_DELAY);
+			/* ----------------- End of parsing the magnetometer through the function------------------*/
+
+
+			/* -----------------------------------------------------------------------------------
+			 * ----------------- parsing the MadgwickAHRS through the function ----------------------
+			 * ----------------------------------------------------------------------------------- */
+			MadgwickAHRSupdate(realGyroX, realGyroY, realGyroZ, realAccelX, realAccelY, realAccelZ, realMagX, realMagY, realMagZ);
+			for (int i = 0; i < sizeof(i2c_mpu_quaternion_data); ++i)
+				i2c_mpu_quaternion_data[i] = 0;
+			//snprintf(i2c_mpu_quaternion_data, 100, "Q1: %.4f Q2: %.4f Q3: %.4f Q4: %.4f\n", q0, q1, q2, q3);
+			snprintf(i2c_mpu_quaternion_data, 100, "%.4f %.4f %.4f %.4f\n", q0, q1, q2, q3);
+			HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_quaternion_data, sizeof(i2c_mpu_quaternion_data), HAL_MAX_DELAY);
+			/* ---------------- End parsing the MadgwickAHRS through the function -----------------------*/
+		} else if(status == HAL_TIMEOUT) {
+			ledPin = 7;
+		} else if(status == HAL_ERROR) {
+			ledPin = 14;
+		} else if(status == HAL_BUSY) {
+			ledPin = 7;
+			blink_led_on();
+			ledPin = 14;
+			blink_led_on();
+			timer_sleep(2000u);
+			blink_led_off();
+			ledPin = 7;
+			blink_led_off();
+		}
+		blink_led_on();
+		timer_sleep(100u);
+		blink_led_off();
+
+
 		/* ----------------------------------------------
 		 * --- Testing the I2CwithUART communication ----
 		 * ----------------------------------------------

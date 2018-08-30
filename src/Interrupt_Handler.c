@@ -22,11 +22,21 @@ volatile int UART_RECEIVE_IT_FLAG = 0;
 char uart_transmit_it_buffer[] = "BUTTON PRESSED!\n";
 char uart_receive_it_buffer[1];
 
+float accel_sum_x = 0;
+float accel_sum_y = 0;
+float accel_sum_z = 0;
+
+// ----- Private variables ---------------------------------------------------
+
+static char i2c_mpu_accel_write_buffer[50] = {0};
+static char i2c_mpu_accel_buffer[6] = {0};
 
 // ----- EXTERN VARIABLES -----------------------------------------------------
 
 extern int ledPin;
 extern UART_HandleTypeDef UartHandle;
+extern TIM_HandleTypeDef TimHandle;
+extern I2C_HandleTypeDef I2cHandle;
 
 
 // ----- Function Definitions -------------------------------------------------
@@ -86,8 +96,7 @@ extern UART_HandleTypeDef UartHandle;
 		 	 if(LED_FLAG == 0) {
 		 	 	 blink_led_on();
 		 		 LED_FLAG = 1;
-		 	 }
-		 	 else {
+		 	 }		 	 else {
 		 		 blink_led_off();
 		 		 LED_FLAG = 0;
 		 	 }
@@ -108,6 +117,11 @@ extern UART_HandleTypeDef UartHandle;
 	 HAL_UART_IRQHandler(&UartHandle);
  }
 
+ void TIM3_IRQHandler(void)
+ {
+	 HAL_TIM_IRQHandler(&TimHandle);
+ }
+
  void HAL_UART_RxCpltCallback(UART_HandleTypeDef* UartHandle)
  {
 	 UART_RECEIVE_IT_FLAG = 1;
@@ -117,3 +131,41 @@ extern UART_HandleTypeDef UartHandle;
  {
 	 UART_TRANSMIT_IT_FLAG = 1;
  }
+
+ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+ {
+	 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+	 static int32_t period_counter = 1;
+
+	 HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x3B, 1, (uint8_t*)i2c_mpu_accel_buffer, 6, HAL_MAX_DELAY);
+	 readingTheAccel(i2c_mpu_accel_buffer, i2c_mpu_accel_write_buffer);
+
+	 if(period_counter++ % 10 == 0) {
+		 // Multiplying with 9.81 so we get accel in m/sek^2 instead of G
+		 snprintf(i2c_mpu_accel_write_buffer, 50, "X: %.2f Y: %.2f Z: %.2f\n", accel_sum_x / 10 * 9.81, accel_sum_y / 10 * 9.81, accel_sum_z / 10 * 9.81);
+		 HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_accel_write_buffer, sizeof(i2c_mpu_accel_write_buffer), HAL_MAX_DELAY);
+		 accel_sum_x = 0;
+		 accel_sum_y = 0;
+		 accel_sum_z = 0;
+	 }
+ }
+
+ /*	for magnetometer
+ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+ {
+	 HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+	 static int32_t period_counter = 1;
+
+	 HAL_I2C_Mem_Read(&I2cHandle, 0xD0u, 0x3B, 1, (uint8_t*)i2c_mpu_accel_buffer, 6, HAL_MAX_DELAY);
+	 readingTheMagnetometer()(i2c_mpu_accel_buffer, i2c_mpu_accel_write_buffer);
+
+	 if(period_counter++ % 10 == 0) {
+		 // Multiplying with 9.81 so we get accel in m/sek^2 instead of G
+		 snprintf(i2c_mpu_accel_write_buffer, 50, "X: %.2f Y: %.2f Z: %.2f\n", accel_sum_x / 10 * 9.81, accel_sum_y / 10 * 9.81, accel_sum_z / 10 * 9.81);
+		 HAL_UART_Transmit(&UartHandle, (uint8_t*)i2c_mpu_accel_write_buffer, sizeof(i2c_mpu_accel_write_buffer), HAL_MAX_DELAY);
+		 accel_sum_x = 0;
+		 accel_sum_y = 0;
+		 accel_sum_z = 0;
+	 }
+ }
+ */

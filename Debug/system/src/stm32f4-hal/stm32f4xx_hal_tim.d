@@ -1,4 +1,5 @@
-src/main.o: ../src/main.c ../include/USART_Handler.h \
+system/src/stm32f4-hal/stm32f4xx_hal_tim.d: \
+ ../system/src/stm32f4-hal/stm32f4xx_hal_tim.c \
  ../system/include/stm32f4-hal/stm32f4xx_hal.h \
  ../include/stm32f4xx_hal_conf.h \
  ../system/include/stm32f4-hal/stm32f4xx_hal_rcc.h \
@@ -73,16 +74,7 @@ src/main.o: ../src/main.c ../include/USART_Handler.h \
  ../system/include/stm32f4-hal/stm32f4xx_hal_fmpi2c_ex.h \
  ../system/include/stm32f4-hal/stm32f4xx_hal_spdifrx.h \
  ../system/include/stm32f4-hal/stm32f4xx_hal_dfsdm.h \
- ../system/include/stm32f4-hal/stm32f4xx_hal_lptim.h \
- ../system/include/diag/Trace.h ../include/Timer.h \
- ../system/include/cmsis/cmsis_device.h \
- ../system/include/cmsis/stm32f4xx.h ../include/BlinkLed.h \
- ../include/stm32f4xx_hal_uart.h ../include/SPI_Handler.h \
- ../include/I2C_Handler.h ../include/Interrupt_Handler.h \
- ../include/BlinkLed.h ../include/MPU_Handler.h \
- ../include/Timer_Handler.h ../include/MadgwickAHRS.h
-
-../include/USART_Handler.h:
+ ../system/include/stm32f4-hal/stm32f4xx_hal_lptim.h
 
 ../system/include/stm32f4-hal/stm32f4xx_hal.h:
 
@@ -235,29 +227,3 @@ src/main.o: ../src/main.c ../include/USART_Handler.h \
 ../system/include/stm32f4-hal/stm32f4xx_hal_dfsdm.h:
 
 ../system/include/stm32f4-hal/stm32f4xx_hal_lptim.h:
-
-../system/include/diag/Trace.h:
-
-../include/Timer.h:
-
-../system/include/cmsis/cmsis_device.h:
-
-../system/include/cmsis/stm32f4xx.h:
-
-../include/BlinkLed.h:
-
-../include/stm32f4xx_hal_uart.h:
-
-../include/SPI_Handler.h:
-
-../include/I2C_Handler.h:
-
-../include/Interrupt_Handler.h:
-
-../include/BlinkLed.h:
-
-../include/MPU_Handler.h:
-
-../include/Timer_Handler.h:
-
-../include/MadgwickAHRS.h:

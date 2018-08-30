@@ -22,7 +22,7 @@ I2C_HandleTypeDef I2cHandle;
 void InitI2C(){
 	I2cHandle.Instance             = I2C1;
 	I2cHandle.Init.AddressingMode  = I2C_ADDRESSINGMODE_7BIT;
-	I2cHandle.Init.ClockSpeed      = 400000;
+	I2cHandle.Init.ClockSpeed      = 100000;
 	I2cHandle.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
 	I2cHandle.Init.DutyCycle       = I2C_DUTYCYCLE_16_9;
 	I2cHandle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;

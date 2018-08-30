@@ -7,8 +7,11 @@ C_SRCS += \
 ../src/BlinkLed.c \
 ../src/I2C_Handler.c \
 ../src/Interrupt_Handler.c \
+../src/MPU_Handler.c \
+../src/MadgwickAHRS.c \
 ../src/SPI_Handler.c \
 ../src/Timer.c \
+../src/Timer_Handler.c \
 ../src/USART_Handler.c \
 ../src/_initialize_hardware.c \
 ../src/_write.c \
@@ -20,8 +23,11 @@ OBJS += \
 ./src/BlinkLed.o \
 ./src/I2C_Handler.o \
 ./src/Interrupt_Handler.o \
+./src/MPU_Handler.o \
+./src/MadgwickAHRS.o \
 ./src/SPI_Handler.o \
 ./src/Timer.o \
+./src/Timer_Handler.o \
 ./src/USART_Handler.o \
 ./src/_initialize_hardware.o \
 ./src/_write.o \
@@ -33,8 +39,11 @@ C_DEPS += \
 ./src/BlinkLed.d \
 ./src/I2C_Handler.d \
 ./src/Interrupt_Handler.d \
+./src/MPU_Handler.d \
+./src/MadgwickAHRS.d \
 ./src/SPI_Handler.d \
 ./src/Timer.d \
+./src/Timer_Handler.d \
 ./src/USART_Handler.d \
 ./src/_initialize_hardware.d \
 ./src/_write.d \
